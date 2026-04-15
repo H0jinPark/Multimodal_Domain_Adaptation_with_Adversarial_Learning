@@ -1,0 +1,14 @@
+# Data files
+preprocessed_data/
+data/
+*.npy
+*.csv
+*.pkl
+
+# Model weights
+*.pt
+
+# Python cache
+__pycache__/
+**/__pycache__/
+.vscode/

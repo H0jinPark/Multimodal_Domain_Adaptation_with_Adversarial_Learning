@@ -1,0 +1,17 @@
+=== Baseline Model Target Domain Performance ===
+              precision    recall  f1-score   support
+
+ barbellcurl       0.01      0.02      0.02      2585
+  barbellrow       0.00      0.00      0.00      2674
+  benchpress       0.00      0.00      0.00      4946
+         bte       0.01      0.03      0.02      5040
+    deadlift       0.00      0.00      0.00      6602
+        dips       0.00      0.01      0.00      2309
+ latpulldown       0.00      0.00      0.00      6088
+         ohp       0.00      0.00      0.00      5346
+      pullup       0.00      0.00      0.00      1917
+      pushup       0.00      0.00      0.00      2109
+
+    accuracy                           0.01     39616
+   macro avg       0.00      0.01      0.00     39616
+weighted avg       0.00      0.01      0.00     39616

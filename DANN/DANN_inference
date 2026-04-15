@@ -1,0 +1,85 @@
+import sys
+import os
+import torch
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import classification_report, confusion_matrix
+from tqdm import tqdm
+
+# 상위 폴더 및 관련 모듈 추가
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+from data_loader import get_dataloaders
+from DANN_model import DANN1DCNN
+
+def inference():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # 1. 경로 및 원본 데이터 로드 (Trial 단위 취합용)
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'preprocessed_data')
+    y_tgt_raw = np.load(os.path.join(data_dir, 'y_target.npy'), allow_pickle=True)
+    sub_tgt = np.load(os.path.join(data_dir, 'sub_target.npy'), allow_pickle=True) 
+
+    # 2. 데이터 로더 및 라벨 인코더 세팅
+    _, _, tgt_loader, le = get_dataloaders(data_dir=data_dir, batch_size=64)
+    class_names = le.classes_
+    
+    # DANN 모델 로드
+    model_path = os.path.join(os.path.dirname(__file__), 'dann_model.pt')
+    model = DANN1DCNN(num_classes=len(class_names)).to(device)
+    
+    if not os.path.exists(model_path):
+        print(f"❌ 에러: {model_path} 파일이 없습니다. dann_train.py를 먼저 실행하세요!")
+        return
+
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+
+    # 3. 데이터 상태 점검 (스케일링 재확인)
+    X_tgt_tensor = tgt_loader.dataset.X.to(device)
+    print("\n🔍 [데이터 상태 점검] DANN 입력용 Target Tensor 통계량")
+    ch_mean = X_tgt_tensor.mean(dim=[0, 2]).cpu().numpy().round(4)
+    ch_std = X_tgt_tensor.std(dim=[0, 2]).cpu().numpy().round(4)
+    print(f"채널별 평균(Mean): {ch_mean}")
+    print(f"채널별 표준편차(Std): {ch_std}")
+    print("==========================================\n")
+
+    # 4. 윈도우별 추론 수행
+    print("🎯 DANN 모델로 Target Domain 추론 중...")
+    all_probs = []
+    batch_size = 128
+    
+    with torch.no_grad():
+        for i in tqdm(range(0, len(X_tgt_tensor), batch_size)):
+            batch_x = X_tgt_tensor[i:i+batch_size]
+            # DANN 모델은 [class_preds, domain_preds] 두 개를 반환하므로 인덱싱 필요
+            class_logits, _ = model(batch_x, alpha=0) 
+            probs = torch.softmax(class_logits, dim=1)
+            all_probs.extend(probs.cpu().numpy())
+    
+    all_probs = np.array(all_probs)
+
+    # 5. 운동(Trial) 단위로 결과 집계
+    results_df = pd.DataFrame({
+        'filename': sub_tgt,
+        'true_label': y_tgt_raw
+    })
+    
+    prob_cols = [f'prob_{c}' for c in class_names]
+    results_df[prob_cols] = all_probs
+
+    # 파일명으로 그룹화하여 확률 평균 계산 (Trial-level Voting)
+    final_eval = results_df.groupby('filename').agg({
+        'true_label': 'first',
+        **{col: 'mean' for col in prob_cols}
+    }).reset_index()
+
+    final_probs = final_eval[prob_cols].values
+    final_preds_idx = np.argmax(final_probs, axis=1)
+    final_preds_label = le.inverse_transform(final_preds_idx)
+    
+    y_true = final_eval['true_label'].values
+    y_pred = final_preds_label
+
+    # 6. 결과 저장 및 시각

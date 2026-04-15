@@ -1,0 +1,19 @@
+=== Baseline Model Trial-Level Performance (Target Domain) ===
+Total Trials: 13
+
+              precision    recall  f1-score   support
+
+ barbellcurl       0.00      0.00      0.00         1
+  barbellrow       0.00      0.00      0.00         0
+  benchpress       0.00      0.00      0.00         3
+         bte       0.00      0.00      0.00         0
+    deadlift       0.00      0.00      0.00         5
+        dips       1.00      0.50      0.67         2
+ latpulldown       0.00      0.00      0.00         0
+         ohp       0.00      0.00      0.00         1
+      pullup       0.00      0.00      0.00         1
+      pushup       0.00      0.00      0.00         0
+
+    accuracy                           0.08        13
+   macro avg       0.10      0.05      0.07        13
+weighted avg       0.15      0.08      0.10        13
